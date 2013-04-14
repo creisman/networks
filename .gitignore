@@ -1,0 +1,8 @@
+*.project
+*.metadata
+*/bin/*
+*.class
+*local.properties
+*.classpath
+*.settings/
+*.loadpath
