@@ -110,11 +110,12 @@ public class PingRaw extends NetLoadableConsoleApp implements PingRawInterface {
 	@Override
 	public ElapsedTimeInterval udpPing(byte[] header, String hostIP, int udpPort, int socketTimeout, int nTrials) {
 		try {
-			ElapsedTime.start("PingRaw_UDPTotalDelay");
-			
 			for (int i = 0; i < nTrials; i++) {
+				ElapsedTime.start("PingRaw_UDPTotalDelay");
+
 				DatagramSocket socket = new DatagramSocket();
 				socket.setSoTimeout(socketTimeout); // wait at most a bounded time when receiving on this socket
+				
 				int dataLength = header.length;
 				if ( dataLength > 1400 )
 					throw new Exception("Data is too long for UDP echo");
@@ -129,33 +130,32 @@ public class PingRaw extends NetLoadableConsoleApp implements PingRawInterface {
 				DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
 				try { 
 					socket.receive(receivePacket);
-					if ( receivePacket.getLength() != header.length )
-						throw new Exception("Bad response: sent " + header.length + " bytes but got back " + receivePacket.getLength());
 					String rcvdHeader = new String(receiveBuf,0,4);
 					if ( !rcvdHeader.equalsIgnoreCase(EchoServiceBase.RESPONSE_OKAY_STR) ) 
 						throw new Exception("Bad returned header: got '" + rcvdHeader + "' but wanted '" + EchoServiceBase.RESPONSE_OKAY_STR);
-					String response = new String(receiveBuf, 4, receivePacket.getLength()-4);
-					System.out.println("UDP: '" + response + "'");
 				} catch (SocketTimeoutException e) {
 					// This exception is thrown if we wait on receive() longer than the timeout
-					System.out.println("UDP socket timeout");
+					throw new Exception("UDP socket timeout");
+				} finally {
+					socket.close();
 				}
-				socket.close();
+				
+				ElapsedTime.stop("PingRaw_UDPTotalDelay");
 			}
 		} catch (Exception e) {
 			System.out.println("Exception: " + e.getMessage());
 		} 
 		
-		ElapsedTime.stop("PingRaw_UDPTotalDelay");
+		
 		return ElapsedTime.get("PingRaw_UDPTotalDelay");
 	}
 	
 	@Override
 	public ElapsedTimeInterval tcpPing(byte[] header, String hostIP, int tcpPort, int socketTimeout, int nTrials) {
-		ElapsedTime.start("PingRaw_TCPTotal");
-		
 		try {
 			for (int i = 0; i < nTrials; i++) {
+				ElapsedTime.start("PingRaw_TCPTotal");
+				
 				Socket tcpSocket = new Socket(hostIP, tcpPort);
 				tcpSocket.setSoTimeout(socketTimeout);
 				InputStream is = tcpSocket.getInputStream();
@@ -167,21 +167,26 @@ public class PingRaw extends NetLoadableConsoleApp implements PingRawInterface {
 				
 				// read the header.  Either the entire header arrives in one chunk, or we
 				// (mistakenly) reject it.
-				byte[] headerBuf = new byte[header.length];
-				int len = is.read(headerBuf);
-				if ( len != header.length )
-					throw new Exception("Bad response header length: got " + len + " but expected " + header.length);
-				String headerStr = new String(headerBuf);
-				if ( !headerStr.equalsIgnoreCase(EchoServiceBase.RESPONSE_OKAY_STR))
-					throw new Exception("Bad response header: got '" + headerStr + "' but expected '" + EchoServiceBase.HEADER_STR + "'");
+				byte[] headerBuf = new byte[EchoServiceBase.RESPONSE_LEN];
+				try {
+					int len = is.read(headerBuf);
+					if ( len <= 0 )
+						throw new Exception("Bad response header length: got " + len + " but expected >0");
+					String headerStr = new String(headerBuf);
+					if ( !headerStr.equalsIgnoreCase(EchoServiceBase.RESPONSE_OKAY_STR))
+						throw new Exception("Bad response header: got '" + headerStr + "' but expected '" + EchoServiceBase.RESPONSE_OKAY_STR + "'");
+				} catch (Exception e) {
+					throw e;
+				} finally {
+					tcpSocket.close();
+				}
 				
-				tcpSocket.close();
+				ElapsedTime.stop("PingRaw_TCPTotal");
 			}
 		} catch (Exception e) {
 			System.out.println("Exception: " + e.getMessage());
 		} 
 		
-		ElapsedTime.stop("PingRaw_TCPTotal");
 		return ElapsedTime.get("PingRaw_TCPTotal");
 	}
 }
