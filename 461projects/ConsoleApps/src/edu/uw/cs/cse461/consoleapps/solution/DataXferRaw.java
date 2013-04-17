@@ -9,12 +9,15 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.nio.ByteBuffer;
 
 import edu.uw.cs.cse461.consoleapps.DataXferInterface.DataXferRawInterface;
 import edu.uw.cs.cse461.net.base.NetBase;
 import edu.uw.cs.cse461.net.base.NetLoadable.NetLoadableConsoleApp;
 import edu.uw.cs.cse461.service.DataXferRawService;
 import edu.uw.cs.cse461.service.DataXferServiceBase;
+import edu.uw.cs.cse461.service.EchoServiceBase;
 import edu.uw.cs.cse461.util.ConfigManager;
 import edu.uw.cs.cse461.util.SampledStatistic.TransferRate;
 import edu.uw.cs.cse461.util.SampledStatistic.TransferRateInterval;
@@ -121,8 +124,57 @@ public class DataXferRaw extends NetLoadableConsoleApp implements DataXferRawInt
 	@Override
 	public byte[] udpDataXfer(byte[] header, String hostIP, int udpPort, int socketTimeout, int xferLength) throws IOException {
 		//TODO: implement this method
-		//(note it is used by udpDataXferRate, an important method for you to look at)
-		return null;
+		
+		// Allocate space for the response
+		byte[] responseBuf = new byte[xferLength];
+		
+		DatagramSocket socket = new DatagramSocket();
+		socket.setSoTimeout(socketTimeout); // wait at most a bounded time when receiving on this socket
+		
+		// TODO: Should we check that the header is small enough to be sent?
+		
+		ByteBuffer bufBB = ByteBuffer.wrap(header);
+		bufBB.put(header);
+		DatagramPacket packet = new DatagramPacket(header, header.length, new InetSocketAddress(hostIP, udpPort));
+		// Inform the server that we are here, and would like a response
+		socket.send(packet);
+		
+		// We expect to receive a response packet containing at most 1000 payload bytes
+		int packetLen = 1000 + DataXferRawService.RESPONSE_OKAY_LEN;
+		byte[] receiveBuf = new byte[packetLen];
+		DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
+		int read = 0;
+		try {
+			// Keep listening for packets until the buffer overflows, or until the server sends a short packet
+			do {
+				socket.receive(receivePacket);
+				String rcvdHeader = new String(receiveBuf,0,DataXferRawService.RESPONSE_OKAY_LEN);
+				if ( !rcvdHeader.equalsIgnoreCase(DataXferRawService.RESPONSE_OKAY_STR) ) 
+					throw new IOException("Bad returned header: got '" + rcvdHeader + "' but wanted '" + DataXferRawService.RESPONSE_OKAY_STR);
+				
+				// Calculate the length and starting index of the payload
+				int payloadLen = receivePacket.getLength() - DataXferRawService.RESPONSE_OKAY_LEN;
+				int payloadStart = DataXferRawService.RESPONSE_OKAY_LEN;
+				
+				// Check if the packet will overflow the buffer
+				if (payloadLen + read > xferLength)
+					throw new IOException("Bad response length: got " + payloadLen + read + "bytes but expected " + xferLength + " bytes.");
+				
+				// Copy the payload into the buffer
+				for (int i = payloadStart; i < receivePacket.getLength(); i++) {
+					responseBuf[read] = receivePacket.getData()[i];
+					read++;
+				}
+			} while (receivePacket.getLength() == packetLen && read < xferLength);
+			// Verify that the correct number of packets were read
+			if (read != xferLength)
+				throw new IOException("Bad response length: got " + read + "bytes but expected " + xferLength + " bytes.");
+			
+		} finally {
+			socket.close();
+		}
+		
+		return responseBuf;
 	}
 	
 	/**
@@ -141,10 +193,10 @@ public class DataXferRaw extends NetLoadableConsoleApp implements DataXferRawInt
 				TransferRate.stop("udp", xferLength);
 			} catch ( java.net.SocketTimeoutException e) {
 				TransferRate.abort("udp", xferLength);
-				//System.out.println("UDP trial timed out");
+				// System.out.println("UDP trial timed out");
 			} catch (Exception e) {
 				TransferRate.abort("udp", xferLength);
-				//System.out.println("Unexpected " + e.getClass().getName() + " exception in UDP trial: " + e.getMessage());
+				// System.out.println("Unexpected " + e.getClass().getName() + " exception in UDP trial: " + e.getMessage());
 			}
 		}
 		
@@ -158,8 +210,53 @@ public class DataXferRaw extends NetLoadableConsoleApp implements DataXferRawInt
 	@Override
 	public byte[] tcpDataXfer(byte[] header, String hostIP, int tcpPort, int socketTimeout, int xferLength) throws IOException {
 		//TODO: implement this method
-		//(note it is used by tcpDataXferRate, an important method for you to look at)		
-		return null;
+		
+		// Allocate space for the response
+		byte[] responseBuf = new byte[xferLength];
+		
+		// Set up the TCP socket
+		Socket tcpSocket = new Socket(hostIP, tcpPort);
+		tcpSocket.setSoTimeout(socketTimeout);
+		InputStream is = tcpSocket.getInputStream();
+		OutputStream os = tcpSocket.getOutputStream();
+		
+		// Send the header
+		os.write(header);
+		tcpSocket.shutdownOutput();
+		
+		// Read the response data
+		int read = 0;
+		byte[] responseHeader  = new byte[DataXferRawService.RESPONSE_OKAY_LEN];
+		try {
+			// Read the response header
+			int len = is.read(responseHeader);
+			
+			// Verify the length of the header
+			if (len != responseHeader.length)
+				throw new IOException("Bad response header length: got " + len + " but expected " + responseHeader.length);
+			
+			// Verify the contents of the header
+			String headerStr = new String(responseHeader);
+			if ( !headerStr.equalsIgnoreCase(DataXferRawService.RESPONSE_OKAY_STR))
+				throw new IOException("Bad response header: got '" + headerStr + "' but expected '" + DataXferRawService.RESPONSE_OKAY_STR + "'");
+			
+			// Read fixed-size chunks from the input stream (as per the spec)
+			while(read < xferLength) {
+				int res = is.read(responseBuf, read, 100);
+				
+				// If the stream closed prematurely, throw an exception
+				if (res == -1)
+					throw new IOException("Bad response length: got " + read + "bytes but expected " + xferLength + " bytes.");
+				
+				read += res;
+			}
+			
+			// TODO: check that the inputstream is now closed
+			
+		} finally {
+			tcpSocket.close();
+		}
+		return responseBuf;
 	}
 	
 	/**
@@ -178,7 +275,7 @@ public class DataXferRaw extends NetLoadableConsoleApp implements DataXferRawInt
 				TransferRate.stop("tcp", xferLength);
 			} catch (Exception e) {
 				TransferRate.abort("tcp", xferLength);
-				//System.out.println("TCP trial failed: " + e.getMessage());
+				// System.out.println("TCP trial failed: " + e.getMessage());
 			}
 		
 		}
