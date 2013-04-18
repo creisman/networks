@@ -242,7 +242,7 @@ public class DataXferRaw extends NetLoadableConsoleApp implements DataXferRawInt
 			
 			// Read fixed-size chunks from the input stream (as per the spec)
 			while(read < xferLength) {
-				int res = is.read(responseBuf, read, 100);
+				int res = is.read(responseBuf, read, Math.min(100, xferLength - read));
 				
 				// If the stream closed prematurely, throw an exception
 				if (res == -1)
