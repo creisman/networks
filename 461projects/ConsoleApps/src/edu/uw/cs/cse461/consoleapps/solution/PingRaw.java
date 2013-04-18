@@ -130,7 +130,7 @@ public class PingRaw extends NetLoadableConsoleApp implements PingRawInterface {
 				DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
 				try { 
 					socket.receive(receivePacket);
-					String rcvdHeader = new String(receiveBuf,0,4);
+					String rcvdHeader = new String(receiveBuf,0,EchoServiceBase.RESPONSE_LEN);
 					if ( !rcvdHeader.equalsIgnoreCase(EchoServiceBase.RESPONSE_OKAY_STR) ) 
 						throw new Exception("Bad returned header: got '" + rcvdHeader + "' but wanted '" + EchoServiceBase.RESPONSE_OKAY_STR);
 				} catch (SocketTimeoutException e) {
@@ -176,8 +176,6 @@ public class PingRaw extends NetLoadableConsoleApp implements PingRawInterface {
 					String headerStr = new String(headerBuf);
 					if ( !headerStr.equalsIgnoreCase(EchoServiceBase.RESPONSE_OKAY_STR))
 						throw new Exception("Bad response header: got '" + headerStr + "' but expected '" + EchoServiceBase.RESPONSE_OKAY_STR + "'");
-				} catch (Exception e) {
-					throw e;
 				} finally {
 					tcpSocket.close();
 				}
