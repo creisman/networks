@@ -143,6 +143,7 @@ public class PingRaw extends NetLoadableConsoleApp implements PingRawInterface {
 				ElapsedTime.stop("PingRaw_UDPTotalDelay");
 			}
 		} catch (Exception e) {
+			ElapsedTime.abort("PingRaw_UDPTotalDelay");
 			System.out.println("Exception: " + e.getMessage());
 		} 
 		
@@ -184,6 +185,7 @@ public class PingRaw extends NetLoadableConsoleApp implements PingRawInterface {
 				ElapsedTime.stop("PingRaw_TCPTotal");
 			}
 		} catch (Exception e) {
+			ElapsedTime.abort("PingRaw_TCPTotal");
 			System.out.println("Exception: " + e.getMessage());
 		} 
 		
