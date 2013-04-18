@@ -8,6 +8,7 @@ import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 
@@ -54,8 +55,8 @@ public class DataXferRawService extends DataXferServiceBase implements NetLoadab
 		for (int i = 0; i < NPORTS; i++) {
 			tcpThreads[i] = new TCPThread(serverIP, mBasePort + i, XFERSIZE[i]);
 			tcpThreads[i].start();
-			// udpThreads[i] = new UDPThread(serverIP, mBasePort + i, XFERSIZE[i]);
-			// udpThreads[i].start();
+			udpThreads[i] = new UDPThread(serverIP, mBasePort + i, XFERSIZE[i]);
+			udpThreads[i].start();
 		}
 		
 	}
@@ -159,6 +160,75 @@ public class DataXferRawService extends DataXferServiceBase implements NetLoadab
 	}
 	
 	private class UDPThread extends Thread {
-		// TODO: Implement
+		
+		private static final int PAYLOAD_SIZE = 1000;
+		
+		private DatagramSocket mDatagramSocket;
+		private String serverIP;
+		private int port;
+		private int xferLength;
+		
+		/**
+		 * Constructs a new UDPThread on the given IP and port. This constructor does not reserve the
+		 * given port.
+		 *  
+		 * @param serverIP the IP of this server instance
+		 * @param port the port on which to a
+		 */
+		private UDPThread(String serverIP, int port, int xferLength) {
+			this.serverIP = serverIP;
+			this.port = port;
+			this.xferLength = xferLength;
+		}
+		
+		/**
+		 * Run the UDP xfer service.
+		 */
+		@Override
+		public void run() {
+			byte buf[] = new byte[1000 + RESPONSE_OKAY_LEN];
+			DatagramPacket packet = new DatagramPacket(buf, buf.length);
+
+			//	Thread termination in this code is primitive.  When shutdown() is called (by the
+			//	application's main thread, so asynchronously to the threads just mentioned) it
+			//	closes the sockets.  This causes an exception on any thread trying to read from
+			//	it, which is what provokes thread termination.
+			try {
+				mDatagramSocket = new DatagramSocket(new InetSocketAddress(serverIP, port));
+				mDatagramSocket.setSoTimeout(NetBase.theNetBase().config().getAsInt("net.timeout.granularity", 500));
+				
+				while ( !isShutdown() ) {
+					try {
+						mDatagramSocket.receive(packet);
+						if ( packet.getLength() < HEADER_STR.length() )
+							throw new Exception("Bad header: length = " + packet.getLength());
+						String headerStr = new String( buf, 0, HEADER_STR.length() );
+						if ( ! headerStr.equalsIgnoreCase(HEADER_STR) )
+							throw new Exception("Bad header: got '" + headerStr + "', wanted '" + HEADER_STR + "'");
+						
+						// Set the header and a one byte at the beginning and end of the buffer.
+						System.arraycopy(RESPONSE_OKAY_STR.getBytes(), 0, buf, 0, RESPONSE_OKAY_STR.length());
+						buf[RESPONSE_OKAY_LEN] = (byte)1;
+						buf[buf.length - 1] = (byte)1;
+						
+						for (int i = xferLength; i > 0; i -= PAYLOAD_SIZE) {
+							if (i < PAYLOAD_SIZE) {
+								mDatagramSocket.send( new DatagramPacket(buf, i + RESPONSE_OKAY_LEN, packet.getAddress(), packet.getPort()));
+							} else {
+								mDatagramSocket.send( new DatagramPacket(buf, PAYLOAD_SIZE + RESPONSE_OKAY_LEN, packet.getAddress(), packet.getPort()));
+							}
+						}
+					} catch (SocketTimeoutException e) {
+						// socket timeout is normal
+					} catch (Exception e) {
+						Log.w(TAG,  "Dgram reading thread caught " + e.getClass().getName() + " exception: " + e.getMessage());
+					}
+				}
+			} catch (SocketException e) {
+				Log.w(TAG, "UDP server thread exiting due to exception: " + e.getMessage());
+			} finally {
+				if ( mDatagramSocket != null ) { mDatagramSocket.close(); mDatagramSocket = null; }
+			}
+		}
 	}
 }
