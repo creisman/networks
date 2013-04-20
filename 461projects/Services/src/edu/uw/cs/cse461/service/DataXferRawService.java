@@ -36,21 +36,23 @@ public class DataXferRawService extends DataXferServiceBase implements NetLoadab
 
 	private int mBasePort;
 	
+	private TCPThread[] tcpThreads;
+	private UDPThread[] udpThreads;
+	
 	public DataXferRawService() throws Exception {
 		super("dataxferraw");
 		
 		ConfigManager config = NetBase.theNetBase().config();
 		mBasePort = config.getAsInt("dataxferraw.server.baseport", 0);
 		if ( mBasePort == 0 ) throw new RuntimeException("dataxferraw service can't run -- no dataxferraw.server.baseport entry in config file");
-		//TODO: implement this method (hint: look at echo raw service)
 		
 		// Get the IP of the server
 		String serverIP = IPFinder.localIP();
 		if ( serverIP == null ) throw new Exception("IPFinder isn't providing the local IP address.  Can't run.");
 		
 		// Start the server threads
-		TCPThread[] tcpThreads = new TCPThread[NPORTS];
-		UDPThread[] udpThreads = new UDPThread[NPORTS];
+		tcpThreads = new TCPThread[NPORTS];
+		udpThreads = new UDPThread[NPORTS];
 		
 		for (int i = 0; i < NPORTS; i++) {
 			tcpThreads[i] = new TCPThread(serverIP, mBasePort + i, XFERSIZE[i]);
@@ -68,9 +70,20 @@ public class DataXferRawService extends DataXferServiceBase implements NetLoadab
 	 */
 	@Override
 	public String dumpState() {
-		//TODO: not necessary, but filling this in is useful
-		return "";
+		StringBuilder sb = new StringBuilder(super.dumpState());
+		sb.append("\nListening on:");
+		for (int i = 0; i < XFERSIZE.length; i++) {
+			sb.append("\n\tTCP: ");
+			if ( tcpThreads[i].getServerSocket() != null ) sb.append(tcpThreads[i].getServerSocket());
+			else sb.append("Not listening");
+		}
 		
+		for (int i = 0; i < XFERSIZE.length; i++) {
+			sb.append("\n\tUDP: ");
+			if ( udpThreads[i].getDatagramSocket() != null ) sb.append(udpThreads[i].getDatagramSocket().getLocalSocketAddress());
+			else sb.append("Not listening");
+		}
+		return sb.toString();
 	}
 	
 	/**
@@ -79,9 +92,9 @@ public class DataXferRawService extends DataXferServiceBase implements NetLoadab
 	 */
 	private class TCPThread extends Thread {
 		private ServerSocket mServerSocket;
-		String serverIP;
-		int port;
-		int xferLength;
+		private String serverIP;
+		private int port;
+		private int xferLength;
 		
 		/**
 		 * Constructs a new TCPThread on the given IP and port. This constructor does not reserve the
@@ -157,6 +170,13 @@ public class DataXferRawService extends DataXferServiceBase implements NetLoadab
 			}
 		}
 		
+		/**
+		 * @return the server socket backing this thread.
+		 */
+		public ServerSocket getServerSocket() {
+			return this.mServerSocket;
+		}
+		
 	}
 	
 	private class UDPThread extends Thread {
@@ -229,6 +249,13 @@ public class DataXferRawService extends DataXferServiceBase implements NetLoadab
 			} finally {
 				if ( mDatagramSocket != null ) { mDatagramSocket.close(); mDatagramSocket = null; }
 			}
+		}
+		
+		/**
+		 * @return the datagram socket back this thread.
+		 */
+		public DatagramSocket getDatagramSocket() {
+			return mDatagramSocket;
 		}
 	}
 }
