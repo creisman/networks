@@ -1,6 +1,5 @@
 package edu.uw.cs.cse461.service;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.DatagramPacket;
@@ -10,13 +9,12 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
-import java.nio.ByteBuffer;
 
 import edu.uw.cs.cse461.net.base.NetBase;
+import edu.uw.cs.cse461.net.base.NetLoadableInterface.NetLoadableServiceInterface;
 import edu.uw.cs.cse461.util.ConfigManager;
 import edu.uw.cs.cse461.util.IPFinder;
 import edu.uw.cs.cse461.util.Log;
-import edu.uw.cs.cse461.net.base.NetLoadableInterface.NetLoadableServiceInterface;
 
 /**
  * Transfers reasonably large amounts of data to client over raw TCP and UDP sockets.  In both cases,
@@ -39,6 +37,11 @@ public class DataXferRawService extends DataXferServiceBase implements NetLoadab
 	private TCPThread[] tcpThreads;
 	private UDPThread[] udpThreads;
 	
+	/**
+	 * Constructor for DataXferRawService.
+	 *
+	 * @throws Exception if a problem happens
+	 */
 	public DataXferRawService() throws Exception {
 		super("dataxferraw");
 		
@@ -101,7 +104,8 @@ public class DataXferRawService extends DataXferServiceBase implements NetLoadab
 		 * given port or open a serversocket.
 		 *  
 		 * @param serverIP the IP of this server instance
-		 * @param port the port on which to a
+		 * @param port the port on which to send the payload
+		 * @param xferLength The amount of data to send
 		 */
 		private TCPThread(String serverIP, int port, int xferLength) {
 			this.serverIP = serverIP;
@@ -160,13 +164,13 @@ public class DataXferRawService extends DataXferServiceBase implements NetLoadab
 					} catch (Exception e) {
 						Log.i(TAG, "TCP thread caught " + e.getClass().getName() + " exception: " + e.getMessage());
 					} finally {
-						if ( sock != null ) try { sock.close(); sock = null;} catch (Exception e) {}
+						if ( sock != null ) try { sock.close(); sock = null;} catch (Exception e) { /**/ }
 					}
 				}
 			} catch (Exception e) {
 				Log.w(TAG, "TCP server thread exiting due to exception: " + e.getMessage());
 			} finally {
-				if ( mServerSocket != null ) try { mServerSocket.close(); mServerSocket = null; } catch (Exception e) {}
+				if ( mServerSocket != null ) try { mServerSocket.close(); mServerSocket = null; } catch (Exception e) { /**/ }
 			}
 		}
 		
@@ -193,7 +197,8 @@ public class DataXferRawService extends DataXferServiceBase implements NetLoadab
 		 * given port.
 		 *  
 		 * @param serverIP the IP of this server instance
-		 * @param port the port on which to a
+		 * @param port the port on which to send the data
+		 * @param xferLength The length of the payload to send in total
 		 */
 		private UDPThread(String serverIP, int port, int xferLength) {
 			this.serverIP = serverIP;
@@ -241,7 +246,10 @@ public class DataXferRawService extends DataXferServiceBase implements NetLoadab
 					} catch (SocketTimeoutException e) {
 						// socket timeout is normal
 					} catch (Exception e) {
-						Log.w(TAG,  "Dgram reading thread caught " + e.getClass().getName() + " exception: " + e.getMessage());
+						Log.w(TAG,
+								"Dgram reading thread caught "
+										+ e.getClass().getName()
+										+ " exception: " + e.getMessage());
 					}
 				}
 			} catch (SocketException e) {
