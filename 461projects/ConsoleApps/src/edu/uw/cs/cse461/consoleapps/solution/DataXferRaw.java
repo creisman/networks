@@ -9,7 +9,6 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 
 import edu.uw.cs.cse461.consoleapps.DataXferInterface.DataXferRawInterface;
@@ -17,7 +16,6 @@ import edu.uw.cs.cse461.net.base.NetBase;
 import edu.uw.cs.cse461.net.base.NetLoadable.NetLoadableConsoleApp;
 import edu.uw.cs.cse461.service.DataXferRawService;
 import edu.uw.cs.cse461.service.DataXferServiceBase;
-import edu.uw.cs.cse461.service.EchoServiceBase;
 import edu.uw.cs.cse461.util.ConfigManager;
 import edu.uw.cs.cse461.util.SampledStatistic.TransferRate;
 import edu.uw.cs.cse461.util.SampledStatistic.TransferRateInterval;
@@ -123,15 +121,11 @@ public class DataXferRaw extends NetLoadableConsoleApp implements DataXferRawInt
 	 */
 	@Override
 	public byte[] udpDataXfer(byte[] header, String hostIP, int udpPort, int socketTimeout, int xferLength) throws IOException {
-		//TODO: implement this method
-		
 		// Allocate space for the response
 		byte[] responseBuf = new byte[xferLength];
 		
 		DatagramSocket socket = new DatagramSocket();
 		socket.setSoTimeout(socketTimeout); // wait at most a bounded time when receiving on this socket
-		
-		// TODO: Should we check that the header is small enough to be sent?
 		
 		ByteBuffer bufBB = ByteBuffer.wrap(header);
 		bufBB.put(header);
@@ -159,6 +153,11 @@ public class DataXferRaw extends NetLoadableConsoleApp implements DataXferRawInt
 				// Check if the packet will overflow the buffer
 				if (payloadLen + read > xferLength)
 					throw new IOException("Bad response length: got " + payloadLen + read + "bytes but expected " + xferLength + " bytes.");
+				
+				// Used to test our server implementation only.
+//				if (receivePacket.getData()[payloadStart] != (byte)1 || receivePacket.getData()[receivePacket.getLength() - 1] != (byte)1) {
+//					throw new IOException();
+//				}
 				
 				// Copy the payload into the buffer
 				for (int i = payloadStart; i < receivePacket.getLength(); i++) {
@@ -203,14 +202,12 @@ public class DataXferRaw extends NetLoadableConsoleApp implements DataXferRawInt
 		return TransferRate.get("udp");
 	}
 	
-
+	
 	/**
 	 * Method to actually transfer data over TCP, without measuring performance.
 	 */
 	@Override
 	public byte[] tcpDataXfer(byte[] header, String hostIP, int tcpPort, int socketTimeout, int xferLength) throws IOException {
-		//TODO: implement this method
-		
 		// Allocate space for the response
 		byte[] responseBuf = new byte[xferLength];
 		
@@ -242,7 +239,7 @@ public class DataXferRaw extends NetLoadableConsoleApp implements DataXferRawInt
 			
 			// Read fixed-size chunks from the input stream (as per the spec)
 			while(read < xferLength) {
-				int res = is.read(responseBuf, read, Math.min(100, xferLength - read));
+				int res = is.read(responseBuf, read, Math.min(1000, xferLength - read));
 				
 				// If the stream closed prematurely, throw an exception
 				if (res == -1)
@@ -250,14 +247,12 @@ public class DataXferRaw extends NetLoadableConsoleApp implements DataXferRawInt
 				
 				read += res;
 			}
-			
-			// TODO: check that the inputstream is now closed
-			
 		} finally {
 			tcpSocket.close();
 		}
 		return responseBuf;
 	}
+	
 	
 	/**
 	 * Performs nTrials trials via UDP of a data xfer to host hostIP on port udpPort.  Expects to get xferLength
