@@ -62,22 +62,39 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 	 * @return 
 	 */
 	protected static int byteToInt(byte buf[]) {
-		// You need to implement this.  It's the inverse of intToByte().
-		return 0;
+		ByteBuffer b = ByteBuffer.wrap(buf);
+		b.order(ByteOrder.LITTLE_ENDIAN);
+		return b.getInt();
 	}
 
+	/**
+	 * The socket used for TCP communication
+	 */
+	private Socket sock;
+	
+	/**
+	 * The maximum allowed size for which decoding of a message will be attempted
+	 */
+	private int maxReadLength;
+	
 	/**
 	 * Constructor, associating this TCPMessageHandler with a connected socket.
 	 * @param sock
 	 * @throws IOException
 	 */
 	public TCPMessageHandler(Socket sock) throws IOException {
+		this.sock = sock;
 	}
 	
 	/**
 	 * Closes the underlying socket and renders this TCPMessageHandler useless.
 	 */
 	public void close() {
+		try {
+			sock.close();
+		} catch (IOException e) {
+			Log.e(TAG, "IOException encountered during close: " + e.getMessage());
+		}
 	}
 	
 	/**
@@ -87,7 +104,9 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 	 */
 	@Override
 	public int setTimeout(int timeout) throws SocketException {
-		return 0;
+		int prevTimeout = sock.getSoTimeout();
+		sock.setSoTimeout(timeout);
+		return prevTimeout;
 	}
 	
 	/**
@@ -97,7 +116,9 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 	 */
 	@Override
 	public boolean setNoDelay(boolean value) throws SocketException {
-		return false;
+		boolean prevVal = sock.getTcpNoDelay();
+		sock.setTcpNoDelay(value);
+		return prevVal;
 	}
 	
 	/**
@@ -106,7 +127,7 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 	 */
 	@Override
 	public int setMaxReadLength(int maxLen) {
-		return 0;
+		return maxReadLength = maxLen;
 	}
 
 	/**
@@ -114,7 +135,7 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 	 */
 	@Override
 	public int getMaxReadLength() {
-		return 0;
+		return maxReadLength;
 	}
 	
 	//--------------------------------------------------------------------------------------
@@ -123,6 +144,12 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 	
 	@Override
 	public void sendMessage(byte[] buf) throws IOException {
+		// Start by writing the length
+		OutputStream os = sock.getOutputStream();
+		os.write(intToByte(buf.length));
+		
+		// Next, send the data
+		os.write(buf);
 	}
 	
 	/**
@@ -130,6 +157,7 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 	 */
 	@Override
 	public void sendMessage(String str) throws IOException {
+		sendMessage(str.getBytes());
 	}
 
 	/**
@@ -137,6 +165,7 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 	 */
 	@Override
 	public void sendMessage(int value) throws IOException{
+		sendMessage(intToByte(value));
 	}
 	
 	/**
@@ -144,6 +173,7 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 	 */
 	@Override
 	public void sendMessage(JSONArray jsArray) throws IOException {
+		sendMessage(jsArray.toString());
 	}
 	
 	/**
@@ -151,6 +181,7 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 	 */
 	@Override
 	public void sendMessage(JSONObject jsObject) throws IOException {
+		sendMessage(jsObject.toString());
 	}
 	
 	//--------------------------------------------------------------------------------------
@@ -160,26 +191,43 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 	
 	@Override
 	public byte[] readMessageAsBytes() throws IOException {
-		return null;
+		InputStream is = sock.getInputStream();
+		
+		// Read the length
+		byte lengthBuf[] = new byte[4];
+		is.read(lengthBuf);
+		int length = byteToInt(lengthBuf);
+		
+		// Sanity check the length
+		if (length < 0) 
+			throw new IOException("Negative length");
+		if(length > maxReadLength)
+			throw new IOException("Length larger than getMaxReadLength()");
+		
+		// Read the payload and return
+		byte payload[] = new byte[length];
+		is.read(payload);
+		
+		return payload;
 	}
 	
 	@Override
 	public String readMessageAsString() throws IOException {
-		return null;
+		return new String(readMessageAsBytes());
 	}
 
 	@Override
 	public int readMessageAsInt() throws IOException {
-		return 0;
+		return byteToInt(readMessageAsBytes());
 	}
 	
 	@Override
 	public JSONArray readMessageAsJSONArray() throws IOException, JSONException {
-		return null;
+		return new JSONArray(readMessageAsString());
 	}
 	
 	@Override
 	public JSONObject readMessageAsJSONObject() throws IOException, JSONException {
-		return null;
+		return new JSONObject(readMessageAsString());
 	}
 }
