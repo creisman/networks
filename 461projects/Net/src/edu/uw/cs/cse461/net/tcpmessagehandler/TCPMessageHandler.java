@@ -218,6 +218,7 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 
 	@Override
 	public int readMessageAsInt() throws IOException {
+		// TODO: Should this verify the length of the byte array?
 		return byteToInt(readMessageAsBytes());
 	}
 	
