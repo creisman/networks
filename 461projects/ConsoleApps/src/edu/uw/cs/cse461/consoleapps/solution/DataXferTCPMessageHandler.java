@@ -7,7 +7,7 @@ public class DataXferTCPMessageHandler extends NetLoadableConsoleApp implements
 		PingInterface {
 
 	public DataXferTCPMessageHandler() {
-		super("dataxfer");
+		super("dataxfertcpmessagehandler");
 	}
 	
 	@Override

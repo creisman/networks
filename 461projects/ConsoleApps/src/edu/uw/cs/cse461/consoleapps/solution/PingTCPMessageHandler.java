@@ -7,7 +7,7 @@ public class PingTCPMessageHandler extends NetLoadableConsoleApp implements
 		PingInterface {
 
 	public PingTCPMessageHandler() {
-		super("ping");
+		super("pingtcpmessagehandler");
 	}
 
 	@Override

@@ -6,7 +6,7 @@ public class DataXferTCPMessageHandlerService extends DataXferServiceBase
 		implements NetLoadableServiceInterface {
 
 	public DataXferTCPMessageHandlerService() {
-		super("dataxfer");
+		super("dataxfertcpmessagehandler");
 		
 		System.out.println("DataXferTCPMessageHandlerService constructor called");
 	}
