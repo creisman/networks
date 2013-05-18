@@ -45,7 +45,7 @@ public class PingTCPMessageHandler extends NetLoadableConsoleApp implements
 
 				int targetTCPPort;
 				System.out
-						.print("Enter the server's TCP port, or empty line to skip: ");
+						.print("Enter the server's TCP port, or empty line to exit: ");
 				String targetTCPPortStr = console.readLine();
 				if (targetTCPPortStr == null
 						|| targetTCPPortStr.trim().isEmpty())
@@ -59,10 +59,6 @@ public class PingTCPMessageHandler extends NetLoadableConsoleApp implements
 
 				int socketTimeout = config.getAsInt("net.timeout.socket", 5000);
 
-				System.out.println("Host: " + targetIP);
-				System.out.println("tcp port: " + targetTCPPort);
-				System.out.println("trials: " + nTrials);
-
 				ElapsedTimeInterval tcpResult = null;
 
 				if (targetTCPPort != 0) {
@@ -72,9 +68,8 @@ public class PingTCPMessageHandler extends NetLoadableConsoleApp implements
 				}
 
 				if (tcpResult != null)
-					System.out.println("TCP: "
-							+ String.format("%.2f msec (%d failures)",
-									tcpResult.mean(), tcpResult.nAborted()));
+					System.out.println(String.format("PingTCPMessageHandler_TotalTime: [%.2f, %.2f, %.2f] (%d samples, %d aborted)\n",
+									tcpResult.mean(), tcpResult.min(), tcpResult.max(), tcpResult.nTrials(), tcpResult.nAborted()));
 
 			} catch (Exception e) {
 				System.out.println("Exception: " + e.getMessage());
@@ -88,17 +83,16 @@ public class PingTCPMessageHandler extends NetLoadableConsoleApp implements
 	@Override
 	public ElapsedTimeInterval ping(String header, String hostIP, int port,
 			int timeout, int nTrials) throws Exception {
-		try {
-			for (int i = 0; i < nTrials; i++) {
+		
+		for (int i = 0; i < nTrials; i++) {
+			try {
 				ElapsedTime.start("PingTCPMessageHandler_Total");
 
 				Socket tcpSocket = new Socket(hostIP, port);
 				tcpSocket.setSoTimeout(timeout);
 
 				TCPMessageHandler handler = new TCPMessageHandler(tcpSocket);
-				// TODO: What length should we use? 4 is based on the response
-				// message "okay"
-				handler.setMaxReadLength(4);
+				handler.setMaxReadLength(EchoServiceBase.RESPONSE_LEN);
 
 				// Send the header to establish what service we want, and then
 				// send a an empty message (ping)
@@ -109,12 +103,7 @@ public class PingTCPMessageHandler extends NetLoadableConsoleApp implements
 					String response = handler.readMessageAsString();
 					String endPing = handler.readMessageAsString();
 
-					// Validate the returned header
-					// TODO: The spec mentions we may want to be flexible with
-					// what responses we accept. Perhaps this check should be
-					// removed?
-					if (!response
-							.equalsIgnoreCase(EchoServiceBase.RESPONSE_OKAY_STR)) {
+					if (!response.equalsIgnoreCase(EchoServiceBase.RESPONSE_OKAY_STR)) {
 						throw new Exception("Bad response header: got '"
 								+ response + "' but expected '"
 								+ EchoServiceBase.RESPONSE_OKAY_STR + "'");
@@ -128,13 +117,13 @@ public class PingTCPMessageHandler extends NetLoadableConsoleApp implements
 				} finally {
 					handler.close();
 				}
-
 				ElapsedTime.stop("PingTCPMessageHandler_Total");
+			} catch (Exception e) {
+				ElapsedTime.abort("PingTCPMessageHandler_Total");
+				Log.e(TAG, "Exception: " + e.getMessage());
 			}
-		} catch (Exception e) {
-			ElapsedTime.abort("PingTCPMessageHandler_Total");
-			Log.w(TAG, "Exception: " + e.getMessage());
 		}
+		
 
 		return ElapsedTime.get("PingTCPMessageHandler_Total");
 	}
