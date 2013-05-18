@@ -195,7 +195,12 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 		
 		// Read the length
 		byte lengthBuf[] = new byte[4];
-		is.read(lengthBuf);
+		int read = is.read(lengthBuf);
+		if (read == -1) {
+			throw new EOFException("EOF reached on socket");
+		} else if (read < 3) {
+			throw new IOException("Message length too short");
+		}
 		int length = byteToInt(lengthBuf);
 		
 		// Sanity check the length
@@ -218,7 +223,6 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 
 	@Override
 	public int readMessageAsInt() throws IOException {
-		// TODO: Should this verify the length of the byte array?
 		return byteToInt(readMessageAsBytes());
 	}
 	
