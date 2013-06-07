@@ -94,7 +94,7 @@ public class RPCCall extends NetLoadableService {
 
 	/**
 	 * Maps a host address to the last time (in milliseconds) that socket was
-	 * used. Lock socketCache before modifying.
+	 * used. Lock socketCache before accessing.
 	 */
 	private Map<HostAddress, Long> socketLastUsed;
 	
@@ -154,7 +154,9 @@ public class RPCCall extends NetLoadableService {
 			// If the previous invocation failed, re-try once with a new socket
 			if (tryAgain) {
 				synchronized (socketCache) {
-					socketCache.remove(new HostAddress(ip, port));
+					HostAddress key = new HostAddress(ip, port);
+					socketCache.remove(key);
+					socketLastUsed.remove(key);
 				}
 				return _invoke(ip, port, serviceName, method, userRequest, socketTimeout, false);
 			} else {
@@ -198,6 +200,7 @@ public class RPCCall extends NetLoadableService {
 	
 	@Override
 	public void shutdown() {
+		timer.cancel();
 	}
 	
 	@Override
