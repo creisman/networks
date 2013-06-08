@@ -106,7 +106,7 @@ import edu.uw.cs.cse461.util.Log;
 		// Read a response from the server
 		Log.d(TAG, "Waiting for invocation response");
 		RPCMessage response = RPCMessage.unmarshall(messageHandler.readMessageAsString());
-		Log.d(TAG, "Invocation response received");
+		Log.d(TAG, "Invocation response received: " + response.mObject);
 		
 		if ("ERROR".equals(response.type())) {
 			// A server error occurred
