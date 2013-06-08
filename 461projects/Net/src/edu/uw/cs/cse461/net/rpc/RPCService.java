@@ -53,7 +53,7 @@ public class RPCService extends NetLoadableService implements Runnable, RPCServi
         super("rpc");
 
         // Useful when debugging:
-        Log.setLevel(Log.DebugLevel.DEBUG.toInt());
+        // Log.setLevel(Log.DebugLevel.DEBUG.toInt());
 
         handlers = new HashMap<String, Map<String, RPCCallableMethod>>();
 

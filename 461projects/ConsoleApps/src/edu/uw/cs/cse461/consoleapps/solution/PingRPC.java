@@ -62,7 +62,7 @@ public class PingRPC extends NetLoadableConsoleApp implements PingRPCInterface {
 
             if (result != null) {
                 System.out
-                        .println("TCP: " + String.format("%.2f msec (%d failures)", result.mean(), result.nAborted()));
+                        .println("RPC: " + String.format("%.2f msec (%d failures)", result.mean(), result.nAborted()));
             }
         } catch (Exception e) {
             System.out.println("PingRPC.run() caught exception: " + e.getMessage());
@@ -78,7 +78,7 @@ public class PingRPC extends NetLoadableConsoleApp implements PingRPCInterface {
             throws Exception {
         try {
             for (int i = 0; i < nTrials; i++) {
-            	Log.d(TAG, "Starting ping trial " + i);
+                Log.d(TAG, "Starting ping trial " + i);
                 ElapsedTime.start("PingRPC_Total");
 
                 // send message
@@ -90,7 +90,7 @@ public class PingRPC extends NetLoadableConsoleApp implements PingRPCInterface {
                     throw new IOException("RPC failed; response is null");
                 }
                 Log.d(TAG, "RPC response received: " + response);
-                
+
                 // Since the tester implements an incorrect echo service, we don't validate the response content here.
 
                 if (!response.has(EchoRPCService.PAYLOAD_KEY)
