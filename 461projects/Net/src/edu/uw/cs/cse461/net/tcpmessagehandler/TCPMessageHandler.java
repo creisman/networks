@@ -28,6 +28,11 @@ import edu.uw.cs.cse461.util.Log;
 public class TCPMessageHandler implements TCPMessageHandlerInterface {
     private static final String TAG = "TCPMessageHandler";
 
+    /**
+     * The maximum amount of data that may be read from the socket at a time
+     */
+    private static final int CHUNK_SIZE = 10000;
+    
     // --------------------------------------------------------------------------------------
     // helper routines
     // --------------------------------------------------------------------------------------
@@ -197,7 +202,7 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
         byte lengthBuf[] = new byte[4];
         int read = is.read(lengthBuf);
         if (read == -1) {
-            throw new EOFException("EOF reached on socket");
+            throw new EOFException("EOF reached on socket when reading length");
         } else if (read < 3) {
             throw new IOException("Message length too short");
         }
@@ -213,7 +218,15 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
 
         // Read the payload and return
         byte payload[] = new byte[length];
-        is.read(payload);
+        int readSoFar = 0;
+        
+        while (readSoFar < length) {
+        	int result = is.read(payload,readSoFar, Math.min(length - readSoFar, CHUNK_SIZE));
+        	if (result == -1) {
+        		throw new EOFException("EOF reached on socket when reading message");
+        	}
+        	readSoFar += result;
+        }
 
         return payload;
     }
