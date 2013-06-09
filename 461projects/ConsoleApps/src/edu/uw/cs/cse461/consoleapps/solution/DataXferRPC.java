@@ -68,6 +68,7 @@ public class DataXferRPC extends NetLoadableConsoleApp implements DataXferRPCInt
             JSONObject header = new JSONObject().put(DataXferRPCService.HEADER_TAG_KEY, DataXferServiceBase.HEADER_STR)
                     .put(DataXferRPCService.HEADER_LENGTH_KEY, size);
 
+            TransferRate.clear();
             TransferRateInterval result = DataXferRate(header, targetIP, targetRPCPort, timeout, nTrials);
 
             if (result != null) {
@@ -110,8 +111,6 @@ public class DataXferRPC extends NetLoadableConsoleApp implements DataXferRPCInt
             Log.e(TAG, "Header doesn't contain length");
             throw new IllegalArgumentException("The provided header does not contain the transfer size.");
         }
-
-        TransferRate.clear();
 
         for (int i = 0; i < nTrials; i++) {
             try {

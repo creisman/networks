@@ -58,6 +58,7 @@ public class PingRPC extends NetLoadableConsoleApp implements PingRPCInterface {
 
             JSONObject header = new JSONObject().put(EchoRPCService.HEADER_TAG_KEY, EchoServiceBase.HEADER_STR);
 
+            ElapsedTime.clear();
             ElapsedTimeInterval result = ping(header, targetIP, targetRPCPort, timeout, nTrials);
 
             if (result != null) {
