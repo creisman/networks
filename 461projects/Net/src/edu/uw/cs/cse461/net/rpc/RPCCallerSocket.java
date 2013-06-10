@@ -2,16 +2,13 @@ package edu.uw.cs.cse461.net.rpc;
 
 import java.io.IOException;
 import java.net.Socket;
-import java.net.SocketException;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import edu.uw.cs.cse461.net.base.NetBase;
-import edu.uw.cs.cse461.net.rpc.RPCMessage.RPCCallMessage;
 import edu.uw.cs.cse461.net.rpc.RPCMessage.RPCCallMessage.RPCControlMessage;
 import edu.uw.cs.cse461.net.rpc.RPCMessage.RPCCallMessage.RPCInvokeMessage;
-import edu.uw.cs.cse461.net.rpc.RPCMessage.RPCResponseMessage;
 import edu.uw.cs.cse461.net.rpc.RPCMessage.RPCResponseMessage.RPCNormalResponseMessage;
 import edu.uw.cs.cse461.net.tcpmessagehandler.TCPMessageHandler;
 import edu.uw.cs.cse461.util.Log;
@@ -55,7 +52,6 @@ import edu.uw.cs.cse461.util.Log;
 		// opportunity to set one themselves
 		messageHandler = new TCPMessageHandler(this);
 		messageHandler.setTimeout(NetBase.theNetBase().config().getAsInt("net.timeout.socket", 2000));
-		messageHandler.setMaxReadLength(NetBase.theNetBase().config().getAsInt("tcpmessagehandler.maxmsglength", 2097148));
 		
 		// Handshake with the remote service
 		JSONObject options = new JSONObject();

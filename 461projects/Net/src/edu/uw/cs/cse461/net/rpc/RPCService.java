@@ -70,7 +70,7 @@ public class RPCService extends NetLoadableService implements Runnable, RPCServi
     }
 
     /**
-     * Executed by an RPCService-created thread. Sits in loop waiting for connections, then creates an RPCCalleeSocket
+     * Executed by an RPCService-created thread. Sits in loop waiting for connections, then creates a separate thread
      * to handle each one.
      */
     @Override
@@ -161,15 +161,20 @@ public class RPCService extends NetLoadableService implements Runnable, RPCServi
             sb.append(mServerSocket.getInetAddress() + ":" + mServerSocket.getLocalPort());
         }
         sb.append("\n");
-        // TODO: This should be expanded to list the registered services
+        sb.append("Registered apps/methods:\n");
+        synchronized (this) {
+        	for (String app : handlers.keySet()) {
+        		for (String method : handlers.get(app).keySet()) {
+        			sb.append("    " + app + "." + method + "()\n");
+        		}
+        	}
+        }
         return sb.toString();
     }
 
     /**
      * A runnable handler that responds to RPC call requests. Persists until rpc.persistence.timeout milliseconds have
      * passed since the most recent client interaction.
-     * 
-     * TODO: This class needs to send error messages to the client when appropriate.
      */
     public class RPCCallResponder implements Runnable {
         private static final String TAG = "RPCCallResponder";
@@ -185,39 +190,46 @@ public class RPCService extends NetLoadableService implements Runnable, RPCServi
         private long lastUsed;
 
         /**
-         * How long to wait before closing a connection
+         * How long to wait before closing a persistent connection
          */
         private final long persistenceTimeout;
+        
+        /**
+         * How long to wait before closing a connection without persistence
+         */
+        private final long networkTimeout;
 
         public RPCCallResponder(Socket socket) throws IOException {
-            messageHandler = new TCPMessageHandler(socket);
-            messageHandler.setMaxReadLength(NetBase.theNetBase().config()
-                    .getAsInt("tcpmessagehandler.maxmsglength", 2097148));
-
-            messageHandler.setTimeout(NetBase.theNetBase().config().getAsInt("net.timeout.socket", 10000));
-
             persistenceTimeout = NetBase.theNetBase().config().getAsInt("rpc.persistence.timeout", 25000);
+            networkTimeout = NetBase.theNetBase().config().getAsInt("net.timeout.socket", 10000);
+            messageHandler = new TCPMessageHandler(socket);
+            messageHandler.setTimeout((int) networkTimeout);
         }
 
         /**
          * Check whether this connection should persist
          * 
+         * @param keepAlive true if persistence is supported, false otherwise
+         * 
          * @return true if the persistence timeout has not passed, false otherwise
          */
-        private boolean persist() {
-            return lastUsed + persistenceTimeout > System.currentTimeMillis();
+        private boolean persist(boolean keepAlive) {
+        	if (keepAlive) {
+        		return lastUsed + persistenceTimeout > System.currentTimeMillis();	
+        	}
+        	return lastUsed + networkTimeout > System.currentTimeMillis();
         }
 
         @Override
         public void run() {
             try {
-                // Initialize the lastUsed field
-                lastUsed = System.currentTimeMillis();
-
                 // Read the connect message
                 Log.d(TAG, "Awaiting connect message from client");
                 RPCMessage rawMessage = RPCMessage.unmarshall(messageHandler.readMessageAsString());
 
+                // Remember the last time we heard from the client
+                lastUsed = System.currentTimeMillis();
+                
                 // Validate the connection message
                 if (!"control".equals(rawMessage.type())) {
                     throw new IOException("Unexpected message of type " + rawMessage.type());
@@ -249,7 +261,7 @@ public class RPCService extends NetLoadableService implements Runnable, RPCServi
                 RPCNormalResponseMessage connectionResponse = new RPCNormalResponseMessage(connectionMessage.id(), data);
 
                 messageHandler.sendMessage(connectionResponse.marshall());
-
+                
                 // Update the socket timeout to check for shutdown signals
                 messageHandler.setTimeout(NetBase.theNetBase().config().getAsInt("net.timeout.granularity", 500));
 
@@ -300,7 +312,7 @@ public class RPCService extends NetLoadableService implements Runnable, RPCServi
                         // This is expected. Proceed through loop again to see
                         // if we should shut down.
                     }
-                } while (keepAlive && !mAmShutdown && persist());
+                } while (!mAmShutdown && persist(keepAlive));
 
                 // Log why this thread shut down
                 if (mAmShutdown) {

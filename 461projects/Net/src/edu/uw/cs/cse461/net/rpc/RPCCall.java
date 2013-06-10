@@ -1,12 +1,9 @@
 package edu.uw.cs.cse461.net.rpc;
 
 import java.io.IOException;
-import java.net.Socket;
-import java.net.SocketException;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Iterator;
-import java.util.LinkedList;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -16,7 +13,6 @@ import org.json.JSONObject;
 
 import edu.uw.cs.cse461.net.base.NetBase;
 import edu.uw.cs.cse461.net.base.NetLoadable.NetLoadableService;
-import edu.uw.cs.cse461.net.tcpmessagehandler.TCPMessageHandler;
 import edu.uw.cs.cse461.util.Log;
 
 /**
@@ -279,6 +275,7 @@ public class RPCCall extends NetLoadableService {
 					long lastUsed = entry.getValue();
 					
 					if (lastUsed + evictionTime < now) {
+						// Remove the socket from the cache, and close it
 						iter.remove();
 						socketCache.get(key).discard();
 						socketCache.remove(key);

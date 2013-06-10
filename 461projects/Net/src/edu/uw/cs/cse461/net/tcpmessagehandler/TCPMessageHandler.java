@@ -13,6 +13,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import edu.uw.cs.cse461.net.base.NetBase;
 import edu.uw.cs.cse461.util.Log;
 
 /**
@@ -83,6 +84,7 @@ public class TCPMessageHandler implements TCPMessageHandlerInterface {
      */
     public TCPMessageHandler(Socket sock) throws IOException {
         this.sock = sock;
+        setMaxReadLength(NetBase.theNetBase().config().getAsInt("tcpmessagehandler.maxmsglength", 2097148));
     }
 
     /**
