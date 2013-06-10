@@ -23,3 +23,21 @@ it checks to see whether it should shut down the socket. A socket is shut down
 if the RPC service has been instructed to close, if persistence is enabled and
 the persistence timeout has been exceeded, or if persistence is disabled and
 the network time has been exceeded.
+
+
+Here is a comparison of the raw and TCPMessageHandler implementations of ping
+and dataxfer:
+
+The following data was collected using 10 trials:
+
+        Ping          DataXfer
+
+RPC:   80.26 ms      11915 bytes/sec
+
+RAW:    0.35 ms     693173 bytes/sec
+
+Note that the raw implementations of both applications perform significantly
+better. We believe this is due to TCPMessageHandler's use of JSON (which
+encodes data less efficiently than raw transmittal, and needs to be parsed
+at both the client and server end), as well as the overhead of using an RPC
+handshake.
