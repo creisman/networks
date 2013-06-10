@@ -62,8 +62,14 @@ public class PingRPC extends NetLoadableConsoleApp implements PingRPCInterface {
             ElapsedTimeInterval result = ping(header, targetIP, targetRPCPort, timeout, nTrials);
 
             if (result != null) {
-                System.out
-                        .println("RPC: " + String.format("%.2f msec (%d failures)", result.mean(), result.nAborted()));
+            	System.out.println();
+            	System.out
+                .println("Mean time: " + String.format("%.3f msec.", result.mean()));
+            	System.out.println(String.format(
+                        "Raw timing info: PingRPC_invoke: [ %.2f,  %.2f,  %.2f] (%d samples, %d aborted)\n",
+                        result.mean(), result.min(), result.max(), result.nTrials(), result.nAborted()));
+            	
+                
             }
         } catch (Exception e) {
             System.out.println("PingRPC.run() caught exception: " + e.getMessage());
