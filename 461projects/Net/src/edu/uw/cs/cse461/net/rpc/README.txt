@@ -22,7 +22,7 @@ net.timeout.granularity time passes without a response from the client,
 it checks to see whether it should shut down the socket. A socket is shut down
 if the RPC service has been instructed to close, if persistence is enabled and
 the persistence timeout has been exceeded, or if persistence is disabled and
-the network time has been exceeded.
+the network timeout has been exceeded.
 
 
 Here is a comparison of the raw and TCPMessageHandler implementations of ping
